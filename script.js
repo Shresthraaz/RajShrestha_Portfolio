@@ -1,3 +1,194 @@
+// ===== INTERACTIVE BACKGROUND - MOUSE TRACKING =====
+const glowFollow = document.querySelector('.glow-follow');
+let mouseX = 0;
+let mouseY = 0;
+let isMouseMoving = false;
+let mouseTimeout;
+
+document.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+
+    // Update glow position
+    glowFollow.style.left = mouseX + 'px';
+    glowFollow.style.top = mouseY + 'px';
+
+    // Show glow on mouse move
+    if (!isMouseMoving) {
+        glowFollow.style.opacity = '1';
+        isMouseMoving = true;
+    }
+
+    // Clear timeout
+    clearTimeout(mouseTimeout);
+
+    // Hide glow after mouse stops
+    mouseTimeout = setTimeout(() => {
+        glowFollow.style.opacity = '0';
+        isMouseMoving = false;
+    }, 1000);
+});
+
+// Hide glow when mouse leaves window
+document.addEventListener('mouseleave', () => {
+    glowFollow.style.opacity = '0';
+    isMouseMoving = false;
+});
+
+// ===== PARTICLE SYSTEM =====
+const canvas = document.getElementById('particle-canvas');
+const ctx = canvas.getContext('2d');
+
+// Set canvas size
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Particle class
+class Particle {
+    constructor(x, y) {
+        this.x = x || Math.random() * canvas.width;
+        this.y = y || Math.random() * canvas.height;
+        this.size = Math.random() * 1.5 + 0.5;
+        this.speedX = (Math.random() - 0.5) * 0.5;
+        this.speedY = (Math.random() - 0.5) * 0.5;
+        this.opacity = Math.random() * 0.5 + 0.3;
+        this.color = ['#0ea5e9', '#06b6d4', '#10b981'][Math.floor(Math.random() * 3)];
+        this.life = 1;
+        this.decay = Math.random() * 0.01 + 0.005;
+    }
+
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.life -= this.decay;
+        this.opacity = this.life * (Math.random() * 0.5 + 0.3);
+
+        // Wrap around screen
+        if (this.x < 0) this.x = canvas.width;
+        if (this.x > canvas.width) this.x = 0;
+        if (this.y < 0) this.y = canvas.height;
+        if (this.y > canvas.height) this.y = 0;
+    }
+
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = this.opacity * this.life;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+}
+
+// Create particles
+let particles = [];
+
+// Initialize particles
+function initParticles() {
+    particles = [];
+    const particleCount = Math.min(100, Math.floor(window.innerWidth / 20));
+    for (let i = 0; i < particleCount; i++) {
+        particles.push(new Particle());
+    }
+}
+initParticles();
+
+// Animation loop
+function animateParticles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Update and draw particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw();
+
+        // Remove dead particles
+        if (particles[i].life <= 0) {
+            particles.splice(i, 1);
+        }
+    }
+
+    // Randomly create new particles
+    if (particles.length < 80) {
+        if (Math.random() < 0.3) {
+            particles.push(new Particle());
+        }
+    }
+
+    requestAnimationFrame(animateParticles);
+}
+animateParticles();
+
+// Create particles on mouse move (extra effect)
+document.addEventListener('mousemove', (e) => {
+    if (Math.random() < 0.1) {
+        particles.push(new Particle(e.clientX, e.clientY));
+    }
+});
+
+// ===== INTERACTIVE BACKGROUND EFFECTS =====
+
+// Mouse tracking for background gradient
+document.addEventListener('mousemove', (e) => {
+    const xPercent = (e.clientX / window.innerWidth) * 100;
+    const yPercent = (e.clientY / window.innerHeight) * 100;
+    
+    document.documentElement.style.setProperty('--mouse-x', `${xPercent}%`);
+    document.documentElement.style.setProperty('--mouse-y', `${yPercent}%`);
+    
+    // Update cursor glow position
+    const cursorGlow = document.getElementById('cursorGlow');
+    if (cursorGlow) {
+        cursorGlow.style.left = e.clientX + 'px';
+        cursorGlow.style.top = e.clientY + 'px';
+    }
+});
+
+// Create floating particles
+function createParticles(count = 50) {
+    const container = document.getElementById('particlesContainer');
+    if (!container) return;
+    
+    const particles = ['small', 'medium', 'large'];
+    
+    for (let i = 0; i < count; i++) {
+        const particle = document.createElement('div');
+        particle.className = `particle ${particles[Math.floor(Math.random() * particles.length)]}`;
+        
+        const startX = Math.random() * window.innerWidth;
+        const startY = window.innerHeight + 50;
+        const duration = 15 + Math.random() * 25;
+        const delay = Math.random() * 2;
+        const horizontalDrift = (Math.random() - 0.5) * 200;
+        
+        particle.style.left = startX + 'px';
+        particle.style.top = startY + 'px';
+        particle.style.animationDuration = duration + 's';
+        particle.style.animationDelay = delay + 's';
+        particle.style.setProperty('--drift', horizontalDrift + 'px');
+        
+        container.appendChild(particle);
+        
+        // Remove particle after animation ends and create new one
+        setTimeout(() => {
+            particle.remove();
+            // Create single new particle to maintain count
+            createParticles(1);
+        }, (duration + delay) * 1000);
+    }
+}
+
+// Initialize particles with device-aware count
+const isMobileDevice = () => {
+    return window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+createParticles(isMobileDevice() ? 20 : 50);
+
 // ===== NAVIGATION MENU =====
 const hamburger = document.querySelector('.hamburger');
 const navMenu = document.querySelector('.nav-menu');
@@ -57,8 +248,11 @@ document.querySelectorAll('.stat-card, .education-card, .project-card, .curricul
 
 // ===== NAVBAR BACKGROUND ON SCROLL =====
 const navbar = document.querySelector('.navbar');
+let lastScrollY = 0;
 
 window.addEventListener('scroll', () => {
+    lastScrollY = window.scrollY;
+    
     if (window.scrollY > 50) {
         navbar.style.background = 'rgba(15, 23, 42, 0.98)';
         navbar.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.3)';
@@ -66,6 +260,13 @@ window.addEventListener('scroll', () => {
         navbar.style.background = 'rgba(15, 23, 42, 0.95)';
         navbar.style.boxShadow = 'none';
     }
+    
+    // Subtle parallax effect on orbs based on scroll
+    const orbs = document.querySelectorAll('.gradient-orb');
+    orbs.forEach((orb, index) => {
+        const offset = window.scrollY * (0.1 + index * 0.05);
+        orb.style.transform = `translateY(${offset}px)`;
+    });
 });
 
 // ===== ACTIVE NAV LINK =====
@@ -303,7 +504,6 @@ document.addEventListener('DOMContentLoaded', () => {
 const emailLink = document.querySelector('a[href^="mailto:"]');
 if (emailLink) {
     emailLink.addEventListener('click', (e) => {
-        // Optional: Add any custom handling here
         console.log('Email contact initiated');
     });
 }
@@ -312,13 +512,11 @@ if (emailLink) {
 const externalLinks = document.querySelectorAll('a[target="_blank"]');
 externalLinks.forEach(link => {
     link.addEventListener('click', (e) => {
-        // Links will open in new tab due to target="_blank"
         console.log('Opening external link:', link.href);
     });
 });
 
 // ===== LAZY LOADING IMAGE EFFECT =====
-// This prepares the portfolio for future image additions
 const images = document.querySelectorAll('img');
 images.forEach(img => {
     img.loading = 'lazy';
@@ -328,7 +526,7 @@ images.forEach(img => {
 const printStyle = document.createElement('style');
 printStyle.textContent = `
     @media print {
-        .navbar, .hero-buttons, footer {
+        .navbar, .hero-buttons, footer, .background-container {
             display: none;
         }
         
@@ -344,4 +542,42 @@ printStyle.textContent = `
 `;
 document.head.appendChild(printStyle);
 
-console.log('Portfolio loaded successfully!');
+// ===== ENHANCE SCROLL PERFORMANCE =====
+let ticking = false;
+window.addEventListener('scroll', () => {
+    if (!ticking) {
+        window.requestAnimationFrame(() => {
+            ticking = false;
+        });
+        ticking = true;
+    }
+});
+
+// ===== CURSOR ENHANCEMENT =====
+document.addEventListener('mousemove', (e) => {
+    // Optional: Add cursor glow effect on interactive elements
+    const hoverElement = document.elementFromPoint(e.clientX, e.clientY);
+    
+    if (hoverElement && (hoverElement.classList.contains('btn') || 
+        hoverElement.classList.contains('nav-link') ||
+        hoverElement.classList.contains('skill-tag'))) {
+        document.body.style.cursor = 'pointer';
+    } else {
+        document.body.style.cursor = 'auto';
+    }
+});
+
+// ===== MOUSE CLICK SPARKLE EFFECT =====
+document.addEventListener('click', (e) => {
+    if (Math.random() > 0.5) {
+        for (let i = 0; i < 3; i++) {
+            const particle = new Particle(e.clientX, e.clientY);
+            particle.speedX = (Math.random() - 0.5) * 2;
+            particle.speedY = (Math.random() - 0.5) * 2;
+            particle.size = Math.random() * 2 + 1;
+            particles.push(particle);
+        }
+    }
+});
+
+console.log('✨ Interactive Portfolio loaded successfully! Move your mouse to see the magic! ✨');
